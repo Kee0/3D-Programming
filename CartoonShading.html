@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; }
+			canvas { display: block; }
+		</style>
+	</head>
+	<body>
+		<script type="module">
+			// Three.js 라이브러리에서 필요한 구성 요소 가져오기
+			import * as THREE from 'https://unpkg.com/three/build/three.module.js';
+	
+			// Three.js 씬 생성
+			const scene = new THREE.Scene();
+	
+			// 원근 카메라 생성
+			const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+	
+			// WebGLRenderer 생성 및 설정
+			const renderer = new THREE.WebGLRenderer();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			document.body.appendChild(renderer.domElement);
+			renderer.setClearColor(new THREE.Color(1, 1, 0));
+	
+			// 구체 지오메트리 생성
+			const geometry = new THREE.SphereGeometry(1, 32, 32);
+	
+			// HTML 스크립트 엘리먼트에서 버텍스와 프래그먼트 쉐이더를 로드
+			var vShader = document.getElementById('vertexShader').innerHTML;
+			var fShader = document.getElementById('fragmentShader').innerHTML;
+	
+			// 로드된 버텍스와 프래그먼트 쉐이더로 쉐이더 소재 생성
+			const material = new THREE.ShaderMaterial({
+				vertexShader: vShader,
+				fragmentShader: fShader
+			});
+	
+			// 구체 지오메트리와 쉐이더 소재로 메쉬 생성
+			const cube = new THREE.Mesh(geometry, material);
+	
+			// 메쉬를 씬에 추가
+			scene.add(cube);
+	
+			// 카메라 위치 조정
+			camera.position.z = 5;
+	
+			// 씬을 애니메이션하는 함수
+			function animate() {
+				requestAnimationFrame(animate);
+	
+				// 메쉬를 회전시킴
+				cube.rotation.x += 0.01;
+				cube.rotation.y += 0.01;
+	
+				// 카메라로 씬을 렌더링
+				renderer.render(scene, camera);
+			}
+	
+			// 애니메이션 함수 호출
+			animate();
+		</script>
+	
+		<!-- 버텍스 쉐이더 스크립트 -->
+		<script id="vertexShader" type="x-shader/x-vertex">
+			varying vec3 vNormal;
+			varying vec3 vViewPosition;
+	
+			void main() {
+				// 모델 뷰 행렬을 사용하여 위치를 변환
+				vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+				gl_Position = projectionMatrix * mvPosition;
+	
+				// 정규화된 법선 벡터 계산
+				vNormal = normalMatrix * normal;
+	
+				// 뷰 위치 계산
+				vViewPosition = -mvPosition.xyz;
+			}
+		</script>
+	
+		<!-- 프래그먼트 쉐이더 스크립트 -->
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			varying vec3 vNormal;
+			varying vec3 vViewPosition;
+	
+			void main() {
+				// 정규화된 법선과 뷰 방향 계산
+				vec3 normal = normalize(vNormal);
+				vec3 viewDir = normalize(vViewPosition);
+	
+				// 광원 방향 정의
+				vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+	
+				// 앰비언트 빛 강도 및 앰비언트 조명 계산
+				float ambientStrength = 0.2;
+				vec3 ambient = ambientStrength * vec3(1.0, 1.0, 1.0);
+	
+				// 디퓨즈 반사 계산
+				float diff = max(dot(normal, lightDir), 0.0);
+				vec3 diffuse = diff * vec3(1.0, 0.0, 0.0);
+	
+				// 반사 방향 계산 및 스펙큘러 반사 계산
+				vec3 reflectDir = reflect(-lightDir, normal);
+				float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+				vec3 specular = vec3(0.5) * spec;
+	
+				// 앰비언트, 디퓨즈, 스펙큘러 반사를 합친 최종 결과 계산
+				vec3 result = (ambient + diffuse + specular);
+	
+				// 결과를 이산적인 쉐이딩 밴드를 만들기 위해 step 함수를 적용
+				float threshold = 0.4;
+				vec3 banding = floor(result / threshold);
+				vec3 finalIntensity = banding * threshold;
+	
+				// 최종 결과를 프래그먼트 색상으로 설정
+				gl_FragColor = vec4(finalIntensity.x, finalIntensity.y, finalIntensity.z, 1.0);
+			}
+		</script>
+	</body>
+	
+</html>
